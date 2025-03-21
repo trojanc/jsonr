@@ -11,3 +11,9 @@ var (
 		reflect.Map,
 	}
 )
+
+// Object this struct is used when marshalling with WithMarshalComplexTypes to export complex types
+type Object struct {
+	Type  string `json:"_t"`
+	Value any    `json:"v"`
+}

@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 )
 
-// jsonrStruct this struct is used when marshalling with WithMarshalComplexTypes to export complex types
-type jsonrStruct struct {
-	Type  string `json:"_t"`
-	Value string `json:"v"`
-}
+func Marshal(v any, opts ...MarshalOption) ([]byte, error) {
 
-func Marshal(v any, opts ...marshalOptions) ([]byte, error) {
+	marshalOpts := &marshalOptions{}
+	for _, opt := range opts {
+		err := opt(marshalOpts)
+		if err != nil {
+			return []byte{}, err
+		}
+	}
 
 	// Nothing to marshal
 	if v == nil {
@@ -25,9 +28,9 @@ func Marshal(v any, opts ...marshalOptions) ([]byte, error) {
 
 	// Is this a complex type?
 	if slices.Contains(ComplexKinds, kind) {
-		j, err := newJSONRStruct(v)
+		j, err := serializeToObject(v)
 		if err != nil {
-			return []byte{}, fmt.Errorf("could not create jsonrStruct: %w", err)
+			return []byte{}, fmt.Errorf("could not create Object: %w", err)
 		}
 		return json.Marshal(j)
 	}
@@ -35,104 +38,187 @@ func Marshal(v any, opts ...marshalOptions) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func getFullTypeName(t reflect.Type) (string, reflect.Type) {
-	prefix := ""
+// serializeToObject serializes any value, using JSON struct tags and omitting default values.
+func serializeToObject(input any) (any, error) {
+	if input == nil {
+		return nil, nil
+	}
+
 	typeName := ""
-	if t.Kind() == reflect.Interface {
-		return "any", t
-	}
 
-	if !slices.Contains(ComplexKinds, t.Kind()) {
-		return t.Name(), t
-	} else {
-		typeName = fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
-	}
+	// Get reflection type and value
+	t := reflect.TypeOf(input)
+	v := reflect.ValueOf(input)
 
-	if t.Kind() == reflect.Ptr {
+	// Dereference pointers
+	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
-		prefix = "*"
-		typeName = fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
+		v = v.Elem()
+		typeName = "*"
 	}
 
-	if t.Kind() == reflect.Slice {
-		prefix = prefix + "[]"
-		typeName, t = getFullTypeName(t.Elem())
-	}
-
-	if t.Kind() == reflect.Interface {
-		return "any", t
-	}
-
-	if t.Kind() == reflect.Map {
-		keyTypeName, _ := getMapKeyName(t.Key()) // TODO erro
-		valTypeName, _ := getFullTypeName(t.Elem())
-		return fmt.Sprintf("%smap[%s]%s", prefix, keyTypeName, valTypeName), t
-	}
-
-	return fmt.Sprintf("%s%s", prefix, typeName), t
-}
-
-// newJSONRStruct creates a new jsonrStruct from the given value.
-// The type is derived from the type of the given value. If the type is a pointer, it will be prefixed with "*".
-// The value is the value itself.
-func newJSONRStruct(v any) (*jsonrStruct, error) {
-	t := reflect.TypeOf(v)
-
-	typeName, t := getFullTypeName(t)
-
-	if t.Kind() == reflect.Map {
-		// TODo what if its a slice of maps
-		return processMap(t, v)
-	}
-
-	valStr, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-
-	return &jsonrStruct{
-		Type:  typeName,
-		Value: string(valStr),
-	}, nil
-}
-
-func getMapKeyName(keyType reflect.Type) (string, error) {
-	if keyType.Kind() == reflect.Ptr {
-		return "", fmt.Errorf("map keys cannot be pointers")
-	} else if keyType.Kind() == reflect.Struct {
-		return "", fmt.Errorf("map keys cannot be structs")
-	} else {
-		return keyType.Name(), nil
-	}
-}
-
-func processMap(mapType reflect.Type, v any) (*jsonrStruct, error) {
-	// use reflection to get the type of the map's key
-	keyType := mapType.Key()
-	keyTypeName, err := getMapKeyName(keyType)
-	if err != nil {
-		return nil, err
-	}
-
-	valTypeName, _ := getFullTypeName(mapType.Elem())
-
-	// loop over v as a map and create a slice of complex variables
-	m := reflect.ValueOf(v)
-	result := make(map[string]any)
-	for _, key := range m.MapKeys() {
-		val := m.MapIndex(key)
-		cv, err := newJSONRStruct(val.Interface())
-		if err != nil {
-			return nil, err
+	// Handle primitive types (omit if default)
+	if isPrimitiveType(t) {
+		if isDefaultValue(v) {
+			return nil, nil
 		}
-		result[key.String()] = cv
+		return input, nil
 	}
-	valStr, err := json.Marshal(result)
+
+	// Get type name for complex structures
+	typeName = typeName + getTypeName(t)
+
+	// Handle complex structures
+	var jsonData []byte
+	var err error
+
+	switch t.Kind() {
+	case reflect.Map:
+		convertedMap := make(map[string]interface{})
+		iter := v.MapRange()
+		keyType := t.Key()
+		if keyType.Kind() == reflect.Ptr {
+			return nil, fmt.Errorf("map keys cannot be pointers")
+		} else if keyType.Kind() == reflect.Struct {
+			return nil, fmt.Errorf("map keys cannot be structs")
+		}
+		for iter.Next() {
+			key := fmt.Sprintf("%v", iter.Key())
+			val, err := serializeToObject(iter.Value().Interface())
+			if err != nil {
+				return nil, err
+			}
+			if val != nil {
+				convertedMap[key] = val
+			}
+		}
+		if len(convertedMap) == 0 {
+			jsonData = []byte("{}")
+		} else {
+			jsonData, err = json.Marshal(convertedMap)
+		}
+
+	case reflect.Slice, reflect.Array:
+		var convertedSlice []interface{}
+		for i := 0; i < v.Len(); i++ {
+			val, err := serializeToObject(v.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+			if val != nil {
+				convertedSlice = append(convertedSlice, val)
+			}
+		}
+		if len(convertedSlice) == 0 {
+			jsonData = []byte("[]")
+		} else {
+			jsonData, err = json.Marshal(convertedSlice)
+		}
+
+	case reflect.Struct:
+		convertedStruct := make(map[string]interface{})
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			fieldVal := v.Field(i)
+
+			// Respect JSON tags
+			jsonKey, ignore := getJSONTag(field)
+			if ignore {
+				continue
+			}
+
+			// Convert field value
+			val, err := serializeToObject(fieldVal.Interface())
+			if err != nil {
+				return nil, err
+			}
+			if val != nil {
+				convertedStruct[jsonKey] = val
+			}
+		}
+		if len(convertedStruct) == 0 {
+			jsonData = []byte("{}")
+		} else {
+			jsonData, err = json.Marshal(convertedStruct)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported type: %s", t.Kind())
+	}
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to serialize: %w", err)
 	}
-	return &jsonrStruct{
-		Type:  fmt.Sprintf("map[%s]%s", keyTypeName, valTypeName),
-		Value: string(valStr),
-	}, nil
+
+	// Wrap complex structures in Object
+	return &Object{Type: typeName, Value: string(jsonData)}, nil
+}
+
+// isPrimitiveType checks if a type is a primitive (int, string, float, bool, etc.)
+func isPrimitiveType(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.String:
+		return true
+	}
+	return false
+}
+
+// isDefaultValue checks if a value is the default for its type
+func isDefaultValue(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
+	switch v.Kind() {
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.String:
+		return v.String() == ""
+	case reflect.Slice, reflect.Map:
+		return v.Len() == 0
+	case reflect.Ptr, reflect.Interface:
+		return v.IsNil()
+	}
+	return false
+}
+
+// getTypeName returns a structured type name for deeply nested types
+func getTypeName(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array:
+		return "[]" + getTypeName(t.Elem())
+	case reflect.Map:
+		return fmt.Sprintf("map[%s]%s", getTypeName(t.Key()), getTypeName(t.Elem()))
+	case reflect.Ptr:
+		return "*" + getTypeName(t.Elem())
+	case reflect.Struct:
+		return t.PkgPath() + "." + t.Name()
+	case reflect.Interface:
+		return "any"
+	default:
+		return t.String()
+	}
+}
+
+// getJSONTag extracts JSON field name from struct tags while respecting json:"-" ignore rules
+func getJSONTag(field reflect.StructField) (string, bool) {
+	tag := field.Tag.Get("json")
+	if tag == "-" {
+		return "", true // Ignore field
+	}
+
+	if tag == "" {
+		return field.Name, false // Default to field name
+	}
+
+	// Extract the actual JSON key (before ",omitempty", ",string", etc.)
+	jsonKey := strings.Split(tag, ",")[0]
+	return jsonKey, false
 }
