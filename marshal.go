@@ -35,13 +35,17 @@ func Marshal(v any, opts ...marshalOptions) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-// newJSONRStruct creates a new jsonrStruct from the given value.
-// The type is derived from the type of the given value. If the type is a pointer, it will be prefixed with "*".
-// The value is the value itself.
-func newJSONRStruct(v any) (*jsonrStruct, error) {
-	t := reflect.TypeOf(v)
-	typeName := t.Name()
+func getFullTypeName(t reflect.Type) (string, reflect.Type) {
 	prefix := ""
+	typeName := t.Name()
+
+	if t.Kind() == reflect.Interface {
+		return "any", t
+	}
+	
+	if !slices.Contains(ComplexKinds, t.Kind()) {
+		return typeName, t
+	}
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 		prefix = "*"
@@ -54,6 +58,27 @@ func newJSONRStruct(v any) (*jsonrStruct, error) {
 		typeName = t.Name()
 	}
 
+	if t.Kind() == reflect.Interface {
+		return "any", t
+	}
+
+	if t.Kind() == reflect.Map {
+		keyTypeName, _ := getMapKeyName(t.Key()) // TODO erro
+		valTypeName, _ := getFullTypeName(t.Elem())
+		return fmt.Sprintf("%smap[%s]%s", prefix, keyTypeName, valTypeName), t
+	}
+
+	return fmt.Sprintf("%s%s.%s", prefix, t.PkgPath(), typeName), t
+}
+
+// newJSONRStruct creates a new jsonrStruct from the given value.
+// The type is derived from the type of the given value. If the type is a pointer, it will be prefixed with "*".
+// The value is the value itself.
+func newJSONRStruct(v any) (*jsonrStruct, error) {
+	t := reflect.TypeOf(v)
+
+	typeName, t := getFullTypeName(t)
+
 	if t.Kind() == reflect.Map {
 		// TODo what if its a slice of maps
 		return processMap(t, v)
@@ -65,22 +90,30 @@ func newJSONRStruct(v any) (*jsonrStruct, error) {
 	}
 
 	return &jsonrStruct{
-		Type:  fmt.Sprintf("%s%s.%s", prefix, t.PkgPath(), typeName),
+		Type:  typeName,
 		Value: string(valStr),
 	}, nil
 }
 
+func getMapKeyName(keyType reflect.Type) (string, error) {
+	if keyType.Kind() == reflect.Ptr {
+		return "", fmt.Errorf("map keys cannot be pointers")
+	} else if keyType.Kind() == reflect.Struct {
+		return "", fmt.Errorf("map keys cannot be structs")
+	} else {
+		return keyType.Name(), nil
+	}
+}
+
 func processMap(mapType reflect.Type, v any) (*jsonrStruct, error) {
 	// use reflection to get the type of the map's key
-	key := mapType.Key()
-	valueType := mapType.Elem()
-	valTypeName := ""
-	keyTypeName := key.Kind().String()
-	if valueType.Kind() == reflect.Ptr {
-		valueType = valueType.Elem()
-		valTypeName = "*"
+	keyType := mapType.Key()
+	keyTypeName, err := getMapKeyName(keyType)
+	if err != nil {
+		return nil, err
 	}
-	valTypeName = valTypeName + valueType.PkgPath() + "." + valueType.Name()
+
+	valTypeName, _ := getFullTypeName(mapType.Elem())
 
 	// loop over v as a map and create a slice of complex variables
 	m := reflect.ValueOf(v)

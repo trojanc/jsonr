@@ -1,6 +1,8 @@
 package jsonr
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -54,7 +56,7 @@ func Test_newJSONRStruct(t *testing.T) {
 		name    string
 		args    args
 		want    *jsonrStruct
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "Empty TestStruct",
@@ -194,18 +196,101 @@ func Test_newJSONRStruct(t *testing.T) {
 				Value: "{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"string\\\":\\\"string1\\\"}\"},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"int\\\":1}\"}}",
 			},
 		},
+		{
+			name: "Map of string to any with TestStruct",
+			args: args{
+				v: map[string]any{
+					"foo":  TestStruct{String: "string1"},
+					"john": TestStruct{Int: 1},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "map[string]any",
+				Value: "{\"foo\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"string\\\":\\\"string1\\\"}\"},\"john\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"int\\\":1}\"}}",
+			},
+		},
+		{
+			name: "Map of string to any with pointer to TestStruct",
+			args: args{
+				v: map[string]any{
+					"foo":  &TestStruct{String: "string1"},
+					"john": &TestStruct{Int: 1},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "map[string]any",
+				Value: "{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"string\\\":\\\"string1\\\"}\"},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"int\\\":1}\"}}",
+			},
+		},
+		{
+			name: "Map of Struct to pointer TestStruct",
+			args: args{
+				v: map[TestStruct]*TestStruct{
+					TestStruct{String: "a"}: {String: "string1"},
+					TestStruct{String: "b"}: {Int: 1},
+				},
+			},
+			wantErr: errors.New("map keys cannot be structs"),
+		},
+		{
+			name: "Map of string to slice of TestStruct",
+			args: args{
+				v: map[string][]TestStruct{
+					"a": {{String: "string1"}},
+					"b": {{Int: 1}},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "map[string][]github.com/trojanc/jsonr.TestStruct",
+				Value: "{\"a\":{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"string\\\":\\\"string1\\\"}]\"},\"b\":{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"int\\\":1}]\"}}",
+			},
+		},
+		{
+			name: "Map of string to pointer to slice of TestStruct",
+			args: args{
+				v: map[string]*[]TestStruct{
+					"a": {{String: "string1"}},
+					"b": {{Int: 1}},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "map[string]*[]github.com/trojanc/jsonr.TestStruct",
+				Value: "{\"a\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"string\\\":\\\"string1\\\"}]\"},\"b\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"int\\\":1}]\"}}",
+			},
+		},
+		{
+			name: "Map of string to map of string",
+			args: args{
+				v: map[string]map[string]string{
+					"1": {"a": "b"},
+					"2": {"c": "d"},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "map[string]map[string]string",
+				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"b\\\\\\\"\\\"}}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"d\\\\\\\"\\\"}}\"}}",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := newJSONRStruct(tt.args.v)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("newJSONRStruct() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			assert.Equal(t, tt.wantErr, err)
+			if got != nil {
+				fmt.Printf("type=  \"%s\", \nvalue= \"%s\"\n", got.Type, got.Value)
 			}
-
-			fmt.Printf("type=\"%s\", value=\"%s\"\n", got.Type, got.Value)
-			assert.Equal(t, tt.want.Type, got.Type)
-			assert.Equal(t, tt.want.Value, got.Value)
+			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func Test(t *testing.T) {
+	test := map[string][]TestStruct{
+		"a": {{String: "string1"}},
+		"b": {{Int: 1}},
+	}
+	val, err := json.Marshal(test)
+	assert.NoError(t, err)
+	fmt.Println(string(val))
+
 }
