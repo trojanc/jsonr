@@ -171,6 +171,40 @@ func Test_newJSONRStruct(t *testing.T) {
 			},
 		},
 		{
+			name: "Slice of TestStruct",
+			args: args{
+				v: []TestStruct{
+					{
+						String: "a",
+					},
+					{
+						String: "b",
+					},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "[]github.com/trojanc/jsonr.TestStruct",
+				Value: "[{\"string\":\"a\"},{\"string\":\"b\"}]",
+			},
+		},
+		{
+			name: "Slice of TestStruct pointers",
+			args: args{
+				v: []*TestStruct{
+					{
+						String: "a",
+					},
+					{
+						String: "b",
+					},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "[]*github.com/trojanc/jsonr.TestStruct",
+				Value: "[{\"string\":\"a\"},{\"string\":\"b\"}]",
+			},
+		},
+		{
 			name: "Map of string to TestStruct",
 			args: args{
 				v: map[string]TestStruct{
@@ -259,7 +293,7 @@ func Test_newJSONRStruct(t *testing.T) {
 			},
 		},
 		{
-			name: "Map of string to map of string",
+			name: "map[string]map[string]string",
 			args: args{
 				v: map[string]map[string]string{
 					"1": {"a": "b"},
@@ -268,6 +302,19 @@ func Test_newJSONRStruct(t *testing.T) {
 			},
 			want: &jsonrStruct{
 				Type:  "map[string]map[string]string",
+				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"b\\\\\\\"\\\"}}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"d\\\\\\\"\\\"}}\"}}",
+			},
+		},
+		{
+			name: "Slice of map[string]",
+			args: args{
+				v: []map[string]string{
+					{"1": "a"},
+					{"2": "b"},
+				},
+			},
+			want: &jsonrStruct{
+				Type:  "[]map[string]string",
 				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"b\\\\\\\"\\\"}}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":{\\\"_t\\\":\\\"string\\\",\\\"v\\\":\\\"\\\\\\\"d\\\\\\\"\\\"}}\"}}",
 			},
 		},

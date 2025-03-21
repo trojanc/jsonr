@@ -37,25 +37,26 @@ func Marshal(v any, opts ...marshalOptions) ([]byte, error) {
 
 func getFullTypeName(t reflect.Type) (string, reflect.Type) {
 	prefix := ""
-	typeName := t.Name()
-
+	typeName := ""
 	if t.Kind() == reflect.Interface {
 		return "any", t
 	}
-	
+
 	if !slices.Contains(ComplexKinds, t.Kind()) {
-		return typeName, t
+		return t.Name(), t
+	} else {
+		typeName = fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
 	}
+
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 		prefix = "*"
-		typeName = t.Name()
+		typeName = fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
 	}
 
 	if t.Kind() == reflect.Slice {
 		prefix = prefix + "[]"
-		t = t.Elem()
-		typeName = t.Name()
+		typeName, t = getFullTypeName(t.Elem())
 	}
 
 	if t.Kind() == reflect.Interface {
@@ -68,7 +69,7 @@ func getFullTypeName(t reflect.Type) (string, reflect.Type) {
 		return fmt.Sprintf("%smap[%s]%s", prefix, keyTypeName, valTypeName), t
 	}
 
-	return fmt.Sprintf("%s%s.%s", prefix, t.PkgPath(), typeName), t
+	return fmt.Sprintf("%s%s", prefix, typeName), t
 }
 
 // newJSONRStruct creates a new jsonrStruct from the given value.
