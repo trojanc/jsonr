@@ -51,7 +51,16 @@ func Wrap(input any) (*Wrapped, error) {
 
 		switch t.Elem().Kind() {
 		case reflect.Interface:
-			return nil, fmt.Errorf("unsupported map value")
+			// rebuild the map by wrapping each value
+			m := make(map[string]any)
+			for _, k := range v.MapKeys() {
+				w, err := Wrap(v.MapIndex(k).Interface())
+				if err != nil {
+					return nil, err
+				}
+				m[k.String()] = w
+			}
+			input = m
 		default:
 		}
 	default:

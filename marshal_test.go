@@ -425,7 +425,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": TestStruct{Int: 1},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
 			name: "Map of string to any with pointer to TestStruct",
@@ -435,7 +435,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": &TestStruct{Int: 1},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
 			name: "Map of Struct to pointer TestStruct",
@@ -456,7 +456,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string][]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"a\":[{\"string\":\"string1\"}],\"b\":[{\"int\":1}]}}",
 		},
 		{
 			name: "Map of string to pointer to slice of TestStruct",
@@ -466,10 +466,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			want: &Wrapped{
-				Type:  "map[string]*[]github.com/trojanc/jsonr.TestStruct",
-				Value: "{\"a\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"string\\\\\\\":\\\\\\\"string1\\\\\\\"}\\\"}]\"},\"b\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"int\\\\\\\":1}\\\"}]\"}}",
-			},
+			want: "{\"_t\":\"map[string]*[]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"a\":[{\"string\":\"string1\"}],\"b\":[{\"int\":1}]}}",
 		},
 		{
 			name: "map[string]map[string]string",
@@ -479,10 +476,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"2": {"c": "d"},
 				},
 			},
-			want: &Wrapped{
-				Type:  "map[string]map[string]string",
-				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":\\\"b\\\"}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":\\\"d\\\"}\"}}",
-			},
+			want: "{\"_t\":\"map[string]map[string]string\",\"v\":{\"1\":{\"a\":\"b\"},\"2\":{\"c\":\"d\"}}}",
 		},
 		{
 			name: "Slice of map[string]",
@@ -492,10 +486,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					{"2": "b"},
 				},
 			},
-			want: &Wrapped{
-				Type:  "[]map[string]string",
-				Value: "[{\"_t\":\"map[string]string\",\"v\":\"{\\\"1\\\":\\\"a\\\"}\"},{\"_t\":\"map[string]string\",\"v\":\"{\\\"2\\\":\\\"b\\\"}\"}]",
-			},
+			want: "{\"_t\":\"[]map[string]string\",\"v\":[{\"1\":\"a\"},{\"2\":\"b\"}]}",
 		},
 	}
 	for _, tt := range tests {
