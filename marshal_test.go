@@ -197,7 +197,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": TestStruct{Int: 1},
 				},
 			},
-			want: "{\"_t\":\"map[string]any\",\"v\":{\"foo\":{\"string\":\"string1\"},\"john\":{\"int\":1}}}",
+			wantErr: errors.New("unsupported map value"),
 		},
 		{
 			name: "Map of string to any with pointer to TestStruct",
@@ -207,10 +207,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": &TestStruct{Int: 1},
 				},
 			},
-			want: &Object{
-				Type:  "map[string]any",
-				Value: "{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"string\\\":\\\"string1\\\"}\"},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":\"{\\\"int\\\":1}\"}}",
-			},
+			wantErr: errors.New("unsupported map value"),
 		},
 		{
 			name: "Map of Struct to pointer TestStruct",
@@ -221,7 +218,7 @@ func Test_newJSONRStruct(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errors.New("map keys cannot be structs"),
+			wantErr: errors.New("unsupported map key"),
 		},
 		{
 			name: "Map of string to slice of TestStruct",
@@ -231,10 +228,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			want: &Object{
-				Type:  "map[string][]github.com/trojanc/jsonr.TestStruct",
-				Value: "{\"a\":{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"string\\\\\\\":\\\\\\\"string1\\\\\\\"}\\\"}]\"},\"b\":{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"int\\\\\\\":1}\\\"}]\"}}",
-			},
+			wantErr: errors.New("unsupported map value"),
 		},
 		{
 			name: "Map of string to pointer to slice of TestStruct",
@@ -244,7 +238,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			want: &Object{
+			want: &Wrapper{
 				Type:  "map[string]*[]github.com/trojanc/jsonr.TestStruct",
 				Value: "{\"a\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"string\\\\\\\":\\\\\\\"string1\\\\\\\"}\\\"}]\"},\"b\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"int\\\\\\\":1}\\\"}]\"}}",
 			},
@@ -257,7 +251,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"2": {"c": "d"},
 				},
 			},
-			want: &Object{
+			want: &Wrapper{
 				Type:  "map[string]map[string]string",
 				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":\\\"b\\\"}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":\\\"d\\\"}\"}}",
 			},
@@ -270,7 +264,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					{"2": "b"},
 				},
 			},
-			want: &Object{
+			want: &Wrapper{
 				Type:  "[]map[string]string",
 				Value: "[{\"_t\":\"map[string]string\",\"v\":\"{\\\"1\\\":\\\"a\\\"}\"},{\"_t\":\"map[string]string\",\"v\":\"{\\\"2\\\":\\\"b\\\"}\"}]",
 			},
@@ -281,19 +275,21 @@ func Test_newJSONRStruct(t *testing.T) {
 			got, err := Marshal(tt.args.v)
 			assert.Equal(t, tt.wantErr, err)
 
-			if got != nil {
-				fmt.Println(string(got))
-			}
-			value := string(got)
-			assert.Equal(t, tt.want, value)
+			if err == nil {
+				if got != nil {
+					fmt.Println(string(got))
+				}
+				value := string(got)
+				assert.Equal(t, tt.want, value)
 
-			obj, err := Unmarshal(got, WithUnmarshalComplexTypes(
-				RegisterType(TestStruct{}),
-				RegisterType(TestStructPtrs{}),
-			))
-			assert.NoError(t, err)
-			fmt.Println(obj)
-			assert.Equal(t, tt.args.v, obj)
+				obj, err := Unmarshal(got, WithUnmarshalComplexTypes(
+					RegisterType(TestStruct{}),
+					RegisterType(TestStructPtrs{}),
+				))
+				assert.NoError(t, err)
+				fmt.Println(obj)
+				assert.Equal(t, tt.args.v, obj)
+			}
 		})
 	}
 }

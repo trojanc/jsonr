@@ -19,7 +19,7 @@ func Marshal(input any) ([]byte, error) {
 // If maps are used, the keys must be a primitive type
 // Values (of maps and slices too) must be json marshallable
 // Structs with `any` fields will not work as expected
-func Wrap(input any) (*Object, error) {
+func Wrap(input any) (*Wrapper, error) {
 
 	if input == nil {
 		return nil, nil // TODO error?
@@ -43,16 +43,17 @@ func Wrap(input any) (*Object, error) {
 
 	switch t.Kind() {
 	case reflect.Map:
-		keyType := t.Key()
-		if keyType.Kind() == reflect.Ptr {
-			return nil, fmt.Errorf("map keys cannot be pointers")
-		} else if keyType.Kind() == reflect.Struct {
-			return nil, fmt.Errorf("map keys cannot be structs")
+		switch t.Key().Kind() {
+		case reflect.Ptr, reflect.Struct, reflect.Map, reflect.Slice:
+			return nil, fmt.Errorf("unsupported map key")
+		default:
 		}
-		//valueType := t.Elem()
-		//if valueType.Kind() == reflect.Interface {
-		//	return nil, fmt.Errorf("map value can not by any")
-		//}
+
+		switch t.Elem().Kind() {
+		case reflect.Interface:
+			return nil, fmt.Errorf("unsupported map value")
+		default:
+		}
 	case reflect.Slice, reflect.Array:
 	case reflect.Struct:
 
@@ -60,7 +61,7 @@ func Wrap(input any) (*Object, error) {
 		return nil, fmt.Errorf("unsupported type: %s", t.Kind())
 	}
 
-	return &Object{
+	return &Wrapper{
 		Type:  typeName,
 		Value: input,
 	}, nil
