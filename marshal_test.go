@@ -168,6 +168,113 @@ func Test_newJSONRStruct(t *testing.T) {
 		},
 
 		{
+			name: "*int",
+			args: args{
+				v: ptr(int(1)),
+			},
+			want: "{\"_t\":\"*int\",\"v\":1}",
+		},
+		// repeat the above for each primitive type
+		{
+			name: "*int8",
+			args: args{
+				v: ptr(int8(2)),
+			},
+			want: "{\"_t\":\"*int8\",\"v\":2}",
+		},
+		{
+			name: "*int16",
+			args: args{
+				v: ptr(int16(3)),
+			},
+			want: "{\"_t\":\"*int16\",\"v\":3}",
+		},
+		{
+			name: "*int32",
+			args: args{
+				v: ptr(int32(4)),
+			},
+			want: "{\"_t\":\"*int32\",\"v\":4}",
+		},
+		{
+			name: "*int64",
+			args: args{
+				v: ptr(int64(5)),
+			},
+			want: "{\"_t\":\"*int64\",\"v\":5}",
+		},
+		{
+			name: "*uint",
+			args: args{
+				v: ptr(uint(6)),
+			},
+			want: "{\"_t\":\"*uint\",\"v\":6}",
+		},
+		{
+			name: "*uint8",
+			args: args{
+				v: ptr(uint8(7)),
+			},
+			want: "{\"_t\":\"*uint8\",\"v\":7}",
+		},
+		{
+			name: "*uint16",
+			args: args{
+				v: ptr(uint16(8)),
+			},
+			want: "{\"_t\":\"*uint16\",\"v\":8}",
+		},
+		{
+			name: "*uint32",
+			args: args{
+				v: ptr(uint32(9)),
+			},
+			want: "{\"_t\":\"*uint32\",\"v\":9}",
+		},
+		{
+			name: "*uint64",
+			args: args{
+				v: ptr(uint64(10)),
+			},
+			want: "{\"_t\":\"*uint64\",\"v\":10}",
+		},
+		{
+			name: "*float32",
+			args: args{
+				v: ptr(float32(11.1)),
+			},
+			want: "{\"_t\":\"*float32\",\"v\":11.1}",
+		},
+		{
+			name: "*float64",
+			args: args{
+				v: ptr(float64(12.2)),
+			},
+			want: "{\"_t\":\"*float64\",\"v\":12.2}",
+		},
+		{
+			name: "*bool",
+			args: args{
+				v: ptr(true),
+			},
+			want: "{\"_t\":\"*bool\",\"v\":true}",
+		},
+		{
+			name: "*byte",
+			args: args{
+				v: ptr(byte(13)),
+			},
+			want: "{\"_t\":\"*uint8\",\"v\":13}",
+		},
+		{
+			name: "*string",
+			args: args{
+				v: ptr("test"),
+			},
+			want: "{\"_t\":\"*string\",\"v\":\"test\"}",
+		},
+
+		{
 			name: "Empty TestStructPtrs",
 			args: args{
 				v: TestStructPtrs{},
@@ -277,6 +384,20 @@ func Test_newJSONRStruct(t *testing.T) {
 			want: "{\"_t\":\"[]*github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
+			name: "Pointer to Slice of TestStruct pointers",
+			args: args{
+				v: &[]*TestStruct{
+					{
+						String: "a",
+					},
+					{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"*[]*github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
+		},
+		{
 			name: "Map of string to TestStruct",
 			args: args{
 				v: map[string]TestStruct{
@@ -345,7 +466,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			want: &Wrapper{
+			want: &Wrapped{
 				Type:  "map[string]*[]github.com/trojanc/jsonr.TestStruct",
 				Value: "{\"a\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"string\\\\\\\":\\\\\\\"string1\\\\\\\"}\\\"}]\"},\"b\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"int\\\\\\\":1}\\\"}]\"}}",
 			},
@@ -358,7 +479,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"2": {"c": "d"},
 				},
 			},
-			want: &Wrapper{
+			want: &Wrapped{
 				Type:  "map[string]map[string]string",
 				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":\\\"b\\\"}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":\\\"d\\\"}\"}}",
 			},
@@ -371,7 +492,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					{"2": "b"},
 				},
 			},
-			want: &Wrapper{
+			want: &Wrapped{
 				Type:  "[]map[string]string",
 				Value: "[{\"_t\":\"map[string]string\",\"v\":\"{\\\"1\\\":\\\"a\\\"}\"},{\"_t\":\"map[string]string\",\"v\":\"{\\\"2\\\":\\\"b\\\"}\"}]",
 			},
@@ -399,4 +520,8 @@ func Test_newJSONRStruct(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

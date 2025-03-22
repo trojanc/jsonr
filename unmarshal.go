@@ -3,12 +3,11 @@ package jsonr
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
 
-type TypeWrapper struct {
+type Unwrapped struct {
 	Type  string          `json:"_t"`
 	Value json.RawMessage `json:"v"`
 }
@@ -22,7 +21,7 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 	}
 
 	// Step 1: Extract the type field
-	var wrapper TypeWrapper
+	var wrapper Unwrapped
 	if err := json.Unmarshal(data, &wrapper); err != nil {
 		return nil, err
 	}
@@ -30,7 +29,7 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 	return Unwrap(wrapper, opts)
 }
 
-func Unwrap(wrapper TypeWrapper, opts *unmarshalOptions) (any, error) {
+func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 
 	instanceType := wrapper.Type
 	isPointer := false
@@ -106,10 +105,6 @@ func Unwrap(wrapper TypeWrapper, opts *unmarshalOptions) (any, error) {
 	return result, nil
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 // removePointer Function to remove pointer from an `any` type variable
 func removePointer(v any) (any, bool) {
 	// Use type assertion to check if it's a pointer
@@ -136,7 +131,6 @@ func getType(typeName string, opts *unmarshalOptions) reflect.Type {
 	typeName = strings.TrimPrefix(typeName, "*")
 	t, exists := opts.typeRegistry[typeName]
 	if !exists {
-		fmt.Printf("could not find %s\n", typeName)
 		return nil // Type not found
 	}
 	return t

@@ -6,6 +6,12 @@ import (
 	"reflect"
 )
 
+// Wrapped this struct is used when marshalling with WithMarshalComplexTypes to export complex types
+type Wrapped struct {
+	Type  string `json:"_t"`
+	Value any    `json:"v"`
+}
+
 func Marshal(input any) ([]byte, error) {
 	w, err := Wrap(input)
 	if err != nil {
@@ -18,7 +24,7 @@ func Marshal(input any) ([]byte, error) {
 // If maps are used, the keys must be a primitive type
 // Values (of maps and slices too) must be json marshallable
 // Structs with `any` fields will not work as expected
-func Wrap(input any) (*Wrapper, error) {
+func Wrap(input any) (*Wrapped, error) {
 
 	if input == nil {
 		return nil, nil // TODO error?
@@ -51,7 +57,7 @@ func Wrap(input any) (*Wrapper, error) {
 	default:
 	}
 
-	return &Wrapper{
+	return &Wrapped{
 		Type:  typeName,
 		Value: input,
 	}, nil
