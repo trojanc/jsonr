@@ -40,14 +40,33 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 	t := getType(instanceType, opts)
 
 	if t.Kind() == reflect.Slice {
-		slice := reflect.MakeSlice(t, 0, 0)
 		slicePtr := reflect.New(t)
-		slicePtr.Elem().Set(slice)
 		result = slicePtr.Interface()
-
 		err := json.Unmarshal(wrapper.Value, result)
 		if err != nil {
 			return nil, err
+		}
+		fmt.Printf("slice : %v\n", result)
+		if t.Elem() == unwrappedType {
+			slice := slicePtr.Elem()
+			// Create a new target map with value of any
+			targetSliceType := reflect.SliceOf(reflect.TypeOf((*any)(nil)).Elem())
+			targetSlice := reflect.MakeSlice(targetSliceType, slice.Len(), slice.Len())
+			targetSlicePtr := reflect.New(targetSliceType) // Pointer to map[?]any
+			targetSlicePtr.Elem().Set(targetSlice)         // Initialize the map
+
+			// Iterate over the slice
+			for i := 0; i < slice.Len(); i++ {
+				elem := slice.Index(i)
+				uw := elem.Interface().(Unwrapped)
+				unwrappedValue, err := Unwrap(uw, opts)
+				if err != nil {
+					return nil, err
+				}
+				mapValue := reflect.ValueOf(unwrappedValue)
+				targetSlice.Index(i).Set(mapValue)
+			}
+			result = targetSlicePtr.Interface()
 		}
 	} else if t.Kind() == reflect.Map {
 		mapPtr := reflect.New(t)              // Pointer to map[string]MyStruct
@@ -103,23 +122,6 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 	return result, nil
 }
 
-func getPointerValue(val reflect.Value) reflect.Value {
-	// If already a pointer, return as-is
-	if val.Kind() == reflect.Ptr {
-		return val
-	}
-
-	// If the value is addressable, use Addr()
-	if val.CanAddr() {
-		return val.Addr()
-	}
-
-	// If not addressable, create a new instance and set the value
-	ptr := reflect.New(val.Type()) // Create a pointer to the type
-	ptr.Elem().Set(val)            // Copy value into the new pointer
-	return ptr
-}
-
 // removePointer Function to remove pointer from an `any` type variable
 func removePointer(v any) (any, bool) {
 	// Use type assertion to check if it's a pointer
@@ -152,10 +154,11 @@ func getType(instanceType string, opts *unmarshalOptions) reflect.Type {
 		sliceValPointer := strings.HasPrefix(instanceType, "*")
 		sliceValType := getType(instanceType, opts)
 
-		if sliceValPointer {
-			sliceValType = reflect.PointerTo(sliceValType) // The slice should be pointers to the type
+		if sliceValType.Kind() == reflect.Interface {
+			sliceValType = unwrappedType // If its any, put it back into a wrapper
+		} else if sliceValPointer {
+			sliceValType = reflect.PointerTo(sliceValType)
 		}
-
 		typ = reflect.SliceOf(sliceValType)
 	} else if strings.HasPrefix(instanceType, "map[") {
 		e := strings.Index(instanceType, "]")
@@ -184,10 +187,6 @@ func getType(instanceType string, opts *unmarshalOptions) reflect.Type {
 			typ = t
 		}
 	}
-
-	//if isPointer {
-	//	typ = reflect.PointerTo(typ)
-	//}
 
 	return typ
 }

@@ -1,6 +1,9 @@
 package jsonr
 
 import (
+	"bytes"
+	"compress/flate"
+	"encoding/ascii85"
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
@@ -370,6 +373,48 @@ func Test_newJSONRStruct(t *testing.T) {
 			want: "{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
+			name: "Slice of any with TestStruct",
+			args: args{
+				v: []any{
+					TestStruct{
+						String: "a",
+					},
+					TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
+			name: "Slice of any with pointer to TestStruct",
+			args: args{
+				v: []any{
+					&TestStruct{
+						String: "a",
+					},
+					&TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
+			name: "Slice of any with pointer and values to TestStruct",
+			args: args{
+				v: []any{
+					&TestStruct{
+						String: "a",
+					},
+					TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
 			name: "Slice of TestStruct pointers",
 			args: args{
 				v: []*TestStruct{
@@ -497,6 +542,7 @@ func Test_newJSONRStruct(t *testing.T) {
 			if err == nil {
 				if got != nil {
 					fmt.Println(string(got))
+					fmt.Println(compressAndEncode(got))
 				}
 				value := string(got)
 				assert.Equal(t, tt.want, value)
@@ -515,4 +561,21 @@ func Test_newJSONRStruct(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func compressAndEncode(data []byte) string {
+	buffer := bytes.Buffer{}
+	ascii85Writer := ascii85.NewEncoder(&buffer)
+	flateWriter, err := flate.NewWriter(ascii85Writer, flate.BestCompression)
+	if err != nil {
+		panic("can't initialize flate.Writer, error=" + err.Error())
+	}
+	_, err = flateWriter.Write(data)
+	if err != nil {
+		panic("can't write to flate.Writer, error=" + err.Error())
+	}
+	_ = flateWriter.Flush()
+	_ = flateWriter.Close()
+	_ = ascii85Writer.Close()
+	return buffer.String()
 }

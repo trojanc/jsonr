@@ -41,8 +41,7 @@ func Wrap(input any) (*Wrapped, error) {
 		v = v.Elem()
 	}
 
-	switch t.Kind() {
-	case reflect.Map:
+	if t.Kind() == reflect.Map {
 		switch t.Key().Kind() {
 		case reflect.Ptr, reflect.Struct, reflect.Map, reflect.Slice:
 			return nil, fmt.Errorf("unsupported map key")
@@ -63,7 +62,19 @@ func Wrap(input any) (*Wrapped, error) {
 			input = m
 		default:
 		}
-	default:
+	} else if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+		if t.Elem().Kind() == reflect.Interface {
+			// rebuild the slice
+			s := make([]any, 0)
+			for i := 0; i < v.Len(); i++ {
+				w, err := Wrap(v.Index(i).Interface())
+				if err != nil {
+					return nil, err
+				}
+				s = append(s, w)
+			}
+			input = s
+		}
 	}
 
 	return &Wrapped{
