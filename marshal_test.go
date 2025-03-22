@@ -61,6 +61,113 @@ func Test_newJSONRStruct(t *testing.T) {
 			want: "{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{}}",
 		},
 		{
+			name: "int",
+			args: args{
+				v: int(1),
+			},
+			want: "{\"_t\":\"int\",\"v\":1}",
+		},
+		// repeat the above for each primitive type
+		{
+			name: "int8",
+			args: args{
+				v: int8(2),
+			},
+			want: "{\"_t\":\"int8\",\"v\":2}",
+		},
+		{
+			name: "int16",
+			args: args{
+				v: int16(3),
+			},
+			want: "{\"_t\":\"int16\",\"v\":3}",
+		},
+		{
+			name: "int32",
+			args: args{
+				v: int32(4),
+			},
+			want: "{\"_t\":\"int32\",\"v\":4}",
+		},
+		{
+			name: "int64",
+			args: args{
+				v: int64(5),
+			},
+			want: "{\"_t\":\"int64\",\"v\":5}",
+		},
+		{
+			name: "uint",
+			args: args{
+				v: uint(6),
+			},
+			want: "{\"_t\":\"uint\",\"v\":6}",
+		},
+		{
+			name: "uint8",
+			args: args{
+				v: uint8(7),
+			},
+			want: "{\"_t\":\"uint8\",\"v\":7}",
+		},
+		{
+			name: "uint16",
+			args: args{
+				v: uint16(8),
+			},
+			want: "{\"_t\":\"uint16\",\"v\":8}",
+		},
+		{
+			name: "uint32",
+			args: args{
+				v: uint32(9),
+			},
+			want: "{\"_t\":\"uint32\",\"v\":9}",
+		},
+		{
+			name: "uint64",
+			args: args{
+				v: uint64(10),
+			},
+			want: "{\"_t\":\"uint64\",\"v\":10}",
+		},
+		{
+			name: "float32",
+			args: args{
+				v: float32(11.1),
+			},
+			want: "{\"_t\":\"float32\",\"v\":11.1}",
+		},
+		{
+			name: "float64",
+			args: args{
+				v: float64(12.2),
+			},
+			want: "{\"_t\":\"float64\",\"v\":12.2}",
+		},
+		{
+			name: "bool",
+			args: args{
+				v: true,
+			},
+			want: "{\"_t\":\"bool\",\"v\":true}",
+		},
+		{
+			name: "byte",
+			args: args{
+				v: byte(13),
+			},
+			want: "{\"_t\":\"uint8\",\"v\":13}",
+		},
+		{
+			name: "string",
+			args: args{
+				v: "test",
+			},
+			want: "{\"_t\":\"string\",\"v\":\"test\"}",
+		},
+
+		{
 			name: "Empty TestStructPtrs",
 			args: args{
 				v: TestStructPtrs{},
@@ -282,10 +389,10 @@ func Test_newJSONRStruct(t *testing.T) {
 				value := string(got)
 				assert.Equal(t, tt.want, value)
 
-				obj, err := Unmarshal(got, WithUnmarshalComplexTypes(
+				obj, err := Unmarshal(got,
 					RegisterType(TestStruct{}),
 					RegisterType(TestStructPtrs{}),
-				))
+				)
 				assert.NoError(t, err)
 				fmt.Println(obj)
 				assert.Equal(t, tt.args.v, obj)

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"slices"
 )
 
 func Marshal(input any) ([]byte, error) {
@@ -29,11 +28,6 @@ func Wrap(input any) (*Wrapper, error) {
 	t := reflect.TypeOf(input)
 	v := reflect.ValueOf(input)
 
-	// Is this a complex type?
-	if !slices.Contains(ComplexKinds, t.Kind()) {
-		return nil, nil // TODO error?
-	}
-
 	typeName := getTypeName(t)
 	// Dereference pointers
 	for t.Kind() == reflect.Ptr {
@@ -54,11 +48,7 @@ func Wrap(input any) (*Wrapper, error) {
 			return nil, fmt.Errorf("unsupported map value")
 		default:
 		}
-	case reflect.Slice, reflect.Array:
-	case reflect.Struct:
-
 	default:
-		return nil, fmt.Errorf("unsupported type: %s", t.Kind())
 	}
 
 	return &Wrapper{
@@ -78,9 +68,7 @@ func getTypeName(t reflect.Type) string {
 		return "*" + getTypeName(t.Elem())
 	case reflect.Struct:
 		return t.PkgPath() + "." + t.Name()
-	case reflect.Interface:
-		return "any"
 	default:
-		return t.String()
+		return t.Kind().String()
 	}
 }

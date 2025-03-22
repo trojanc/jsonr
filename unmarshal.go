@@ -27,9 +27,13 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 		return nil, err
 	}
 
+	return Unwrap(wrapper, opts)
+}
+
+func Unwrap(wrapper TypeWrapper, opts *unmarshalOptions) (any, error) {
+
 	instanceType := wrapper.Type
 	isPointer := false
-	ok := true
 	mapKeyType := ""
 	//var value any
 	var result any
@@ -41,19 +45,14 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 
 	if strings.HasPrefix(instanceType, "[]") {
 		instanceType = instanceType[2:]
-		instance := newInstance(instanceType, opts)
+		sliceValPointer := strings.HasPrefix(instanceType, "*")
+		sliceValType := getType(instanceType, opts)
 
-		if strings.HasPrefix(instanceType, "*") {
-			// Remove pointer from type name
-			instanceType = instanceType[1:]
-		} else {
-			instance, ok = removePointer(instance)
-			if !ok {
-				return nil, errors.New("could not remove pointer")
-			}
+		if sliceValPointer {
+			sliceValType = reflect.PointerTo(sliceValType)
 		}
 
-		sliceType := reflect.SliceOf(reflect.TypeOf(instance))
+		sliceType := reflect.SliceOf(sliceValType)
 		slice := reflect.MakeSlice(sliceType, 0, 0)
 
 		slicePtr := reflect.New(sliceType)
@@ -91,7 +90,7 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 		result = newInstance(instanceType, opts)
 	}
 
-	err = json.Unmarshal(wrapper.Value, result)
+	err := json.Unmarshal(wrapper.Value, result)
 	if err != nil {
 		return nil, err
 	}
@@ -134,16 +133,8 @@ func removePointerReflect(v any) (any, bool) {
 }
 
 func getType(typeName string, opts *unmarshalOptions) reflect.Type {
-	if strings.HasPrefix(typeName, "*") {
-		// Remove pointer from type name
-		typeName = typeName[1:]
-	}
-
-	if typeName == "any" {
-		return reflect.TypeOf((*interface{})(nil)).Elem()
-	}
-
-	t, exists := opts.typeMapping[typeName]
+	typeName = strings.TrimPrefix(typeName, "*")
+	t, exists := opts.typeRegistry[typeName]
 	if !exists {
 		fmt.Printf("could not find %s\n", typeName)
 		return nil // Type not found
