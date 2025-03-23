@@ -1,6 +1,9 @@
 package jsonr
 
 import (
+	"bytes"
+	"compress/flate"
+	"encoding/ascii85"
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
@@ -370,6 +373,48 @@ func Test_newJSONRStruct(t *testing.T) {
 			want: "{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
+			name: "Slice of any with TestStruct",
+			args: args{
+				v: []any{
+					TestStruct{
+						String: "a",
+					},
+					TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
+			name: "Slice of any with pointer to TestStruct",
+			args: args{
+				v: []any{
+					&TestStruct{
+						String: "a",
+					},
+					&TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
+			name: "Slice of any with pointer and values to TestStruct",
+			args: args{
+				v: []any{
+					&TestStruct{
+						String: "a",
+					},
+					TestStruct{
+						String: "b",
+					},
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
+		},
+		{
 			name: "Slice of TestStruct pointers",
 			args: args{
 				v: []*TestStruct{
@@ -425,7 +470,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": TestStruct{Int: 1},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
 			name: "Map of string to any with pointer to TestStruct",
@@ -435,7 +480,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"john": &TestStruct{Int: 1},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
 			name: "Map of Struct to pointer TestStruct",
@@ -456,7 +501,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			wantErr: errors.New("unsupported map value"),
+			want: "{\"_t\":\"map[string][]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"a\":[{\"string\":\"string1\"}],\"b\":[{\"int\":1}]}}",
 		},
 		{
 			name: "Map of string to pointer to slice of TestStruct",
@@ -466,10 +511,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"b": {{Int: 1}},
 				},
 			},
-			want: &Wrapped{
-				Type:  "map[string]*[]github.com/trojanc/jsonr.TestStruct",
-				Value: "{\"a\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"string\\\\\\\":\\\\\\\"string1\\\\\\\"}\\\"}]\"},\"b\":{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":\"[{\\\"_t\\\":\\\"github.com/trojanc/jsonr.TestStruct\\\",\\\"v\\\":\\\"{\\\\\\\"int\\\\\\\":1}\\\"}]\"}}",
-			},
+			want: "{\"_t\":\"map[string]*[]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"a\":[{\"string\":\"string1\"}],\"b\":[{\"int\":1}]}}",
 		},
 		{
 			name: "map[string]map[string]string",
@@ -479,10 +521,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					"2": {"c": "d"},
 				},
 			},
-			want: &Wrapped{
-				Type:  "map[string]map[string]string",
-				Value: "{\"1\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"a\\\":\\\"b\\\"}\"},\"2\":{\"_t\":\"map[string]string\",\"v\":\"{\\\"c\\\":\\\"d\\\"}\"}}",
-			},
+			want: "{\"_t\":\"map[string]map[string]string\",\"v\":{\"1\":{\"a\":\"b\"},\"2\":{\"c\":\"d\"}}}",
 		},
 		{
 			name: "Slice of map[string]",
@@ -492,10 +531,7 @@ func Test_newJSONRStruct(t *testing.T) {
 					{"2": "b"},
 				},
 			},
-			want: &Wrapped{
-				Type:  "[]map[string]string",
-				Value: "[{\"_t\":\"map[string]string\",\"v\":\"{\\\"1\\\":\\\"a\\\"}\"},{\"_t\":\"map[string]string\",\"v\":\"{\\\"2\\\":\\\"b\\\"}\"}]",
-			},
+			want: "{\"_t\":\"[]map[string]string\",\"v\":[{\"1\":\"a\"},{\"2\":\"b\"}]}",
 		},
 	}
 	for _, tt := range tests {
@@ -506,6 +542,7 @@ func Test_newJSONRStruct(t *testing.T) {
 			if err == nil {
 				if got != nil {
 					fmt.Println(string(got))
+					fmt.Println(compressAndEncode(got))
 				}
 				value := string(got)
 				assert.Equal(t, tt.want, value)
@@ -524,4 +561,21 @@ func Test_newJSONRStruct(t *testing.T) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func compressAndEncode(data []byte) string {
+	buffer := bytes.Buffer{}
+	ascii85Writer := ascii85.NewEncoder(&buffer)
+	flateWriter, err := flate.NewWriter(ascii85Writer, flate.BestCompression)
+	if err != nil {
+		panic("can't initialize flate.Writer, error=" + err.Error())
+	}
+	_, err = flateWriter.Write(data)
+	if err != nil {
+		panic("can't write to flate.Writer, error=" + err.Error())
+	}
+	_ = flateWriter.Flush()
+	_ = flateWriter.Close()
+	_ = ascii85Writer.Close()
+	return buffer.String()
 }

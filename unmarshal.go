@@ -3,9 +3,12 @@ package jsonr
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
+
+var unwrappedType = reflect.TypeOf(Unwrapped{})
 
 type Unwrapped struct {
 	Type  string          `json:"_t"`
@@ -32,67 +35,81 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 
 	instanceType := wrapper.Type
-	isPointer := false
-	mapKeyType := ""
-	//var value any
+	isPointer := strings.HasPrefix(instanceType, "*")
 	var result any
-	if strings.HasPrefix(instanceType, "*") {
-		// Remove pointer from type name
-		instanceType = instanceType[1:]
-		isPointer = true
-	}
+	t := getType(instanceType, opts)
 
-	if strings.HasPrefix(instanceType, "[]") {
-		instanceType = instanceType[2:]
-		sliceValPointer := strings.HasPrefix(instanceType, "*")
-		sliceValType := getType(instanceType, opts)
-
-		if sliceValPointer {
-			sliceValType = reflect.PointerTo(sliceValType)
-		}
-
-		sliceType := reflect.SliceOf(sliceValType)
-		slice := reflect.MakeSlice(sliceType, 0, 0)
-
-		slicePtr := reflect.New(sliceType)
-		slicePtr.Elem().Set(slice)
+	if t.Kind() == reflect.Slice {
+		slicePtr := reflect.New(t)
 		result = slicePtr.Interface()
-
-	} else if strings.HasPrefix(instanceType, "map[") {
-		e := strings.Index(instanceType, "]")
-		mapKeyType = instanceType[4:e]
-		instanceType = instanceType[e+1:]
-
-		mapKeyPointer := strings.HasPrefix(mapKeyType, "*")
-		mapValPointer := strings.HasPrefix(instanceType, "*")
-
-		// create a new map using reflection
-		kt := getType(mapKeyType, opts)
-		vt := getType(instanceType, opts)
-
-		if mapKeyPointer {
-			kt = reflect.PointerTo(kt)
+		err := json.Unmarshal(wrapper.Value, result)
+		if err != nil {
+			return nil, err
 		}
-		if mapValPointer {
-			vt = reflect.PointerTo(vt)
+		fmt.Printf("slice : %v\n", result)
+		if t.Elem() == unwrappedType {
+			slice := slicePtr.Elem()
+			// Create a new target map with value of any
+			targetSliceType := reflect.SliceOf(reflect.TypeOf((*any)(nil)).Elem())
+			targetSlice := reflect.MakeSlice(targetSliceType, slice.Len(), slice.Len())
+			targetSlicePtr := reflect.New(targetSliceType) // Pointer to map[?]any
+			targetSlicePtr.Elem().Set(targetSlice)         // Initialize the map
+
+			// Iterate over the slice
+			for i := 0; i < slice.Len(); i++ {
+				elem := slice.Index(i)
+				uw := elem.Interface().(Unwrapped)
+				unwrappedValue, err := Unwrap(uw, opts)
+				if err != nil {
+					return nil, err
+				}
+				mapValue := reflect.ValueOf(unwrappedValue)
+				targetSlice.Index(i).Set(mapValue)
+			}
+			result = targetSlicePtr.Interface()
 		}
-
-		// Create a map type (map[string]MyStruct)
-		mapType := reflect.MapOf(kt, vt)
-
-		// Create a new map instance
-		mapPtr := reflect.New(mapType)              // Pointer to map[string]MyStruct
-		mapPtr.Elem().Set(reflect.MakeMap(mapType)) // Initialize the map
-
+	} else if t.Kind() == reflect.Map {
+		mapPtr := reflect.New(t)              // Pointer to map[string]MyStruct
+		mapPtr.Elem().Set(reflect.MakeMap(t)) // Initialize the map
 		result = mapPtr.Interface()
+		err := json.Unmarshal(wrapper.Value, result)
+		if err != nil {
+			return nil, err
+		}
+
+		if t.Elem() == unwrappedType {
+			// Create a new target map with value of any
+			targetMapType := reflect.MapOf(t.Key(), reflect.TypeOf((*any)(nil)).Elem())
+			targetMap := reflect.MakeMap(targetMapType)
+			targetMapPtr := reflect.New(targetMapType) // Pointer to map[?]any
+			targetMapPtr.Elem().Set(targetMap)         // Initialize the map
+
+			iter := mapPtr.Elem().MapRange()
+			for iter.Next() {
+				keyValue := iter.Key()
+				originalValue := iter.Value()
+
+				uw := originalValue.Interface().(Unwrapped)
+				unwrappedValue, err := Unwrap(uw, opts)
+				if err != nil {
+					return nil, err
+				}
+				mapValue := reflect.ValueOf(unwrappedValue)
+
+				targetMap.SetMapIndex(keyValue, mapValue)
+			}
+			result = targetMapPtr.Interface()
+		}
+
 	} else {
-		result = newInstance(instanceType, opts)
+		result = reflect.New(t).Interface()
+		err := json.Unmarshal(wrapper.Value, result)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	err := json.Unmarshal(wrapper.Value, result)
-	if err != nil {
-		return nil, err
-	}
+	fmt.Printf("result %v\n", result)
 
 	if !isPointer {
 		if val, ok := removePointer(result); ok {
@@ -127,17 +144,49 @@ func removePointerReflect(v any) (any, bool) {
 	return v, false
 }
 
-func getType(typeName string, opts *unmarshalOptions) reflect.Type {
-	typeName = strings.TrimPrefix(typeName, "*")
-	t, exists := opts.typeRegistry[typeName]
-	if !exists {
-		return nil // Type not found
-	}
-	return t
-}
+func getType(instanceType string, opts *unmarshalOptions) reflect.Type {
+	//isPointer := strings.HasPrefix(instanceType, "*")
+	instanceType = strings.TrimPrefix(instanceType, "*")
+	var typ reflect.Type
 
-// newInstance Create a new instance given a type name
-func newInstance(typeName string, opts *unmarshalOptions) any {
-	t := getType(typeName, opts)
-	return reflect.New(t).Interface() // Create a new instance (as pointer)
+	if strings.HasPrefix(instanceType, "[]") {
+		instanceType = instanceType[2:]
+		sliceValPointer := strings.HasPrefix(instanceType, "*")
+		sliceValType := getType(instanceType, opts)
+
+		if sliceValType.Kind() == reflect.Interface {
+			sliceValType = unwrappedType // If its any, put it back into a wrapper
+		} else if sliceValPointer {
+			sliceValType = reflect.PointerTo(sliceValType)
+		}
+		typ = reflect.SliceOf(sliceValType)
+	} else if strings.HasPrefix(instanceType, "map[") {
+		e := strings.Index(instanceType, "]")
+		mapKeyType := instanceType[4:e]
+		instanceType = instanceType[e+1:]
+
+		mapKeyPointer := strings.HasPrefix(mapKeyType, "*")
+		mapValPointer := strings.HasPrefix(instanceType, "*")
+
+		// create a new map using reflection
+		kt := getType(mapKeyType, opts)
+		vt := getType(instanceType, opts)
+
+		if vt.Kind() == reflect.Interface {
+			vt = unwrappedType // If its any, put it back into a wrapper
+		} else if mapValPointer {
+			vt = reflect.PointerTo(vt)
+		}
+
+		if mapKeyPointer {
+			kt = reflect.PointerTo(kt)
+		}
+		typ = reflect.MapOf(kt, vt)
+	} else {
+		if t, exists := opts.typeRegistry[instanceType]; exists {
+			typ = t
+		}
+	}
+
+	return typ
 }
