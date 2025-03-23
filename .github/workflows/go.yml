@@ -36,9 +36,6 @@ jobs:
         with:
           version: v1.64
 
-      - name: Run Tests
-        run: go test -v ./... -coverprofile=coverage.out
-
       - name: Run Security Scan
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest

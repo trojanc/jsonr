@@ -49,43 +49,42 @@ The following example shows how this libary can be used to persist the types mai
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/trojanc/jsonr"
+  "fmt"
+  "github.com/trojanc/jsonr"
 )
 
 type Person struct {
-	Name string
-	Age  int
+  Name string
+  Age  int
 }
 
 type Car struct {
-	Make  string
-	Model string
+  Make  string
+  Model string
 }
 
 func main() {
-	inputMap := map[string]any{
-		"person": Person{Name: "John", Age: 21},
-		"car":  Car{Make: "BMW", Model: "X6"},
-	}
-	data, _ := jsonr.Marshal(inputMap)
+  inputMap := map[string]any{
+    "person": Person{Name: "John", Age: 21},
+    "car":    Car{Make: "BMW", Model: "X6"},
+  }
+  data, _ := jsonr.Marshal(inputMap)
+  fmt.Println(string(data))
+  // {"_t":"map[string]interface","v":{"car":{"_t":"main.Car","v":{"Make":"BMW","Model":"X6"}},"person":{"_t":"main.Person","v":{"Name":"John","Age":21}}}}
 
-	// Unmarshal and register the types that can be contained in the data
-	output, _ := jsonr.Unmarshal(data,
-		jsonr.RegisterType(Person{}),
-		jsonr.RegisterType(Car{}),
-	)
-	outputMap := output.(map[string]any)
-	customer := outputMap["person"].(Person)
-	fmt.Printf("person name: %s, age: %d\n", customer.Name, customer.Age)
+  // Unmarshal and register the types that can be contained in the data
+  output, _ := jsonr.Unmarshal(data,
+    jsonr.RegisterType(Person{}),
+    jsonr.RegisterType(Car{}),
+  )
+  outputMap := output.(map[string]any)
+  customer := outputMap["person"].(Person)
+  fmt.Printf("person name: %s, age: %d\n", customer.Name, customer.Age)
+  // person name: John, age: 21
 
-	car := outputMap["car"].(Car)
-	fmt.Printf("car name: %s, age: %s\n", car.Make, car.Model)
+  car := outputMap["car"].(Car)
+  fmt.Printf("car name: %s, age: %s\n", car.Make, car.Model)
+  // car name: BMW, age: X6
 }
-
-
-
-
 ```
 

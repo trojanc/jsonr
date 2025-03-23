@@ -75,8 +75,8 @@ func Marshal(input any) ([]byte, error) {
 //		"jane": {Name: "Jane", Age: 25},
 //	}
 //
-// wrapped, _ := jsonr.Wrap(people)
-// wrapped will contain type information and value
+//	wrapped, _ := jsonr.Wrap(people)
+//	wrapped will contain type information and value
 func Wrap(input any) (*Wrapped, error) {
 
 	if input == nil {
