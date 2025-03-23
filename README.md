@@ -1,6 +1,17 @@
-# jsonr – JSON Parsing with Reflection for Go
+# jsonr – JSON with reflection types for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/trojanc/jsonr.svg)](https://pkg.go.dev/github.com/trojanc/jsonr)  
+[![Go Reference](https://pkg.go.dev/badge/github.com/trojanc/jsonr.svg)](https://pkg.go.dev/github.com/trojanc/jsonr)
+[![codecov](https://codecov.io/gh/trojanc/jsonr/graph/badge.svg?token=O7P7BFHZ67)](https://codecov.io/gh/trojanc/jsonr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/trojanc/jsonr)](https://goreportcard.com/report/github.com/trojanc/jsonr)
+
+## Project status
+
+* not yet recommended to use in production
+* breaking API changes expected
+* contributors welcome
+
+## Purpose
+
 A Go library for marshalling to json while maintaining custom types. When JSON is unmarshalled the original types
 will be recreated.
 
