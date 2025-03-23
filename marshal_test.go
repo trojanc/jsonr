@@ -557,9 +557,7 @@ func Test_newjsonrStruct(t *testing.T) {
 }
 
 func TestCompareGoJSON(t *testing.T) {
-
-	var obj any
-	obj = TestStruct{
+	obj := TestStruct{
 		String: "tester",
 	}
 
