@@ -1,4 +1,4 @@
-package jsont
+package jsonr
 
 import (
 	"encoding/json"
@@ -12,6 +12,36 @@ type Wrapped struct {
 	Value any    `json:"v"`
 }
 
+// Marshal encodes a Go value into JSON with type information. It wraps the value in a structure that includes
+// the Go type, allowing for proper type reconstruction during unmarshalling.
+//
+// The function handles:
+// - Primitive Go types
+// - Structs and pointers to structs
+// - Maps with primitive keys and any value type
+// - Slices of any type
+// - Nested combinations of the above
+//
+// Example usage:
+//
+//	type Person struct {
+//	    Name string
+//	    Age  int
+//	}
+//
+//	// Marshal a struct
+//	person := Person{Name: "John", Age: 30}
+//	data, _ := jsonr.Marshal(person)
+//	// data will be {"_t":"github.com/project/example.Person","v":{"Name":"John","Age":30}}
+//
+//	// Marshal complex types
+//	people := map[string]Person{
+//	    "john": {Name: "John", Age: 30},
+//	    "jane": {Name: "Jane", Age: 25},
+//	}
+//	data, _ := jsonr.Marshal(people)
+//
+// data will be {"_t":"map[string]github.com/project/example.Person","v":{"john":{"Name":"John","Age":30},"jane":{"Name":"Jane","Age":25}}}
 func Marshal(input any) ([]byte, error) {
 	w, err := Wrap(input)
 	if err != nil {
@@ -20,10 +50,33 @@ func Marshal(input any) ([]byte, error) {
 	return json.Marshal(w)
 }
 
-// Wrap
-// If maps are used, the keys must be a primitive type
-// Values (of maps and slices too) must be json marshallable
-// Structs with `any` fields will not work as expected
+// Wrap takes a Go value and wraps it in a structure that includes type information. This allows for proper
+// type reconstruction during unmarshalling. The function handles various Go types including primitives,
+// structs, maps, slices, and their nested combinations.
+//
+// For maps and slices containing interface{} values, it recursively wraps each element to preserve type
+// information throughout the entire data structure.
+//
+// Example usage:
+//
+//	type Person struct {
+//	    Name string
+//	    Age  int
+//	}
+//
+//	// Wrap a struct
+//	person := Person{Name: "John", Age: 30}
+//	wrapped, _ := jsonr.Wrap(person)
+//	// wrapped will contain type information and value
+//
+//	// Wrap complex types
+//	people := map[string]Person{
+//		"john": {Name: "John", Age: 30},
+//		"jane": {Name: "Jane", Age: 25},
+//	}
+//
+// wrapped, _ := jsonr.Wrap(people)
+// wrapped will contain type information and value
 func Wrap(input any) (*Wrapped, error) {
 
 	if input == nil {

@@ -1,4 +1,4 @@
-package jsont
+package jsonr
 
 import (
 	"encoding/json"
@@ -8,13 +8,43 @@ import (
 	"strings"
 )
 
+// unwrappedType reference to the type of Unwrapped.
 var unwrappedType = reflect.TypeOf(Unwrapped{})
 
+// Unwrapped a structure of an unwrapped type partially read from JSON
 type Unwrapped struct {
 	Type  string          `json:"_t"`
 	Value json.RawMessage `json:"v"`
 }
 
+// Unmarshal decodes JSON data into a Go value with type information. It expects JSON data that was previously
+// encoded using Marshal() which includes type information in a wrapper structure.
+//
+// The function takes a byte slice containing the JSON data and optional UnmarshalOptions. These options can be used to
+// register types that should be available for unmarshalling.
+//
+// Example usage:
+//
+//		type Person struct {
+//		    Name string
+//		    Age  int
+//		}
+//
+//		// Marshal data with type information
+//		data, _ := jsonr.Marshal(Person{Name: "John", Age: 30})
+//	 	// data will be {"_t":"github.com/project/example.Person","v":{"Name":"John","Age":30}}
+//
+//		// Unmarshal back into interface{}
+//		result, _ := jsonr.Unmarshal(data, jsonr.RegisterType(example.Person{}))
+//		// result will be Person{Name: "John", Age: 30}
+//
+// The function also supports unmarshalling complex types like maps and slices:
+//
+//	// Map example
+//	data, _ := jsonr.Marshal(map[string]Person{
+//	    "John": {Name: "John", Age: 30},
+//	    "Jane": {Name: "Jane", Age: 25},
+//	})
 func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 
 	// Build an unmarshalOptions object from the provided options
@@ -32,6 +62,28 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 	return Unwrap(wrapper, opts)
 }
 
+// Unwrap decodes a wrapped JSON structure back into its original Go value. It takes a Unwrapped struct containing
+// type information and raw JSON data, along with unmarshal options for type registration.
+//
+// The function handles complex types like maps and slices, including cases where values are interface{} types
+// that need recursive unwrapping. For maps and slices containing interface{} values, it creates new target
+// collections with properly unwrapped elements.
+//
+// Example usage:
+//
+//	wrapper := Unwrapped{
+//	    Type: "github.com/project/example.Person",
+//	    Value: json.RawMessage(`{"name":"John","age":30}`),
+//	}
+//	result, _ := Unwrap(wrapper, opts)
+//	// result will be Person{Name: "John", Age: 30}
+//
+// The function supports:
+// - Primitive Go types
+// - Structs and pointers to structs
+// - Maps with primitive keys and any value type
+// - Slices of any type
+// - Nested combinations of the above
 func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 
 	instanceType := wrapper.Type

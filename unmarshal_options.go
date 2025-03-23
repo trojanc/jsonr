@@ -1,4 +1,4 @@
-package jsont
+package jsonr
 
 import (
 	"errors"
@@ -6,12 +6,13 @@ import (
 	"reflect"
 )
 
-// variableTypeMapping defines a type that can be used to map type keys to actual relection types
-type variableTypeMapping map[string]reflect.Type
+// typeRegistry defines a type that can be used to map type keys to actual relection types
+type typeRegistry map[string]reflect.Type
 
 // unmarshalOptions Options that will be used while unmarshalling the engine
 type unmarshalOptions struct {
-	typeRegistry variableTypeMapping
+	// typeRegistry registry of types that can be unmarshalled
+	typeRegistry typeRegistry
 }
 
 // UnmarshalOption is a function that modifies the unmarshalOptions
@@ -40,6 +41,7 @@ func applyUnmarshalOptions(options ...UnmarshalOption) (*unmarshalOptions, error
 		typeRegistry: make(map[string]reflect.Type),
 	}
 
+	// Add the primitive types to the type registry
 	opts.typeRegistry["int"] = reflect.TypeOf(int(0))
 	opts.typeRegistry["int8"] = reflect.TypeOf(int8(0))
 	opts.typeRegistry["int16"] = reflect.TypeOf(int16(0))
