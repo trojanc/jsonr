@@ -44,7 +44,7 @@ type TestStructPtrs struct {
 	Byte    *byte    `json:"byte,omitempty"`
 }
 
-func Test_newjsonrStruct(t *testing.T) {
+func Test_MarshalAndUnmarshal(t *testing.T) {
 	type args struct {
 		v any
 	}
@@ -54,6 +54,11 @@ func Test_newjsonrStruct(t *testing.T) {
 		want    any
 		wantErr error
 	}{
+		{
+			name: "nil",
+			args: args{},
+			want: "null",
+		},
 		{
 			name: "Empty TestStruct",
 			args: args{
@@ -329,35 +334,35 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"github.com/trojanc/jsonr.TestStructPtrs\",\"v\":{\"string\":\"test\",\"int\":1,\"int8\":2,\"int16\":3,\"int32\":4,\"int64\":5,\"uint\":6,\"uint8\":7,\"uint16\":8,\"uint32\":9,\"uint64\":10,\"float32\":11.1,\"float64\":12.2,\"bool\":true,\"byte\":13}}",
 		},
 		{
-			name: "Empty TestStruct Pointer",
+			name: "*TestStruct empty",
 			args: args{
 				v: &TestStruct{},
 			},
 			want: "{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{}}",
 		},
 		{
-			name: "Empty TestStructPtrs Pointer",
+			name: "*TestStructPtrs empty",
 			args: args{
 				v: &TestStructPtrs{},
 			},
 			want: "{\"_t\":\"*github.com/trojanc/jsonr.TestStructPtrs\",\"v\":{}}",
 		},
 		{
-			name: "Pointer to slice of empty TestStruct",
+			name: "*[]TestStruct empty",
 			args: args{
 				v: &[]TestStruct{},
 			},
 			want: "{\"_t\":\"*[]github.com/trojanc/jsonr.TestStruct\",\"v\":[]}",
 		},
 		{
-			name: "Slice of empty TestStruct",
+			name: "[]TestStruct empty",
 			args: args{
 				v: []TestStruct{},
 			},
 			want: "{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":[]}",
 		},
 		{
-			name: "Slice of TestStruct",
+			name: "[]TestStruct",
 			args: args{
 				v: []TestStruct{
 					{
@@ -371,7 +376,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"[]github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
-			name: "Slice of any with TestStruct",
+			name: "[]any with TestStruct",
 			args: args{
 				v: []any{
 					TestStruct{
@@ -385,7 +390,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
 		},
 		{
-			name: "Slice of any with pointer to TestStruct",
+			name: "[]any with *TestStruct",
 			args: args{
 				v: []any{
 					&TestStruct{
@@ -399,7 +404,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
 		},
 		{
-			name: "Slice of any with pointer and values to TestStruct",
+			name: "[]any with *TestStruct",
 			args: args{
 				v: []any{
 					&TestStruct{
@@ -413,7 +418,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"[]interface\",\"v\":[{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"a\"}},{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"b\"}}]}",
 		},
 		{
-			name: "Slice of TestStruct pointers",
+			name: "[]*TestStruct",
 			args: args{
 				v: []*TestStruct{
 					{
@@ -427,7 +432,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"[]*github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
-			name: "Pointer to Slice of TestStruct pointers",
+			name: "*[]*TestStruct",
 			args: args{
 				v: &[]*TestStruct{
 					{
@@ -441,7 +446,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"*[]*github.com/trojanc/jsonr.TestStruct\",\"v\":[{\"string\":\"a\"},{\"string\":\"b\"}]}",
 		},
 		{
-			name: "Map of string to TestStruct",
+			name: "map[string]TestStruct",
 			args: args{
 				v: map[string]TestStruct{
 					"foo":  {String: "string1"},
@@ -451,7 +456,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"map[string]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"foo\":{\"string\":\"string1\"},\"john\":{\"int\":1}}}",
 		},
 		{
-			name: "Map of string to pointer TestStruct",
+			name: "map[string]*TestStruct",
 			args: args{
 				v: map[string]*TestStruct{
 					"foo":  {String: "string1"},
@@ -461,7 +466,17 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"map[string]*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"foo\":{\"string\":\"string1\"},\"john\":{\"int\":1}}}",
 		},
 		{
-			name: "Map of string to any with TestStruct",
+			name: "Error map[*string]*TestStruct",
+			args: args{
+				v: map[*string]*TestStruct{
+					ptr("foo"):  {String: "string1"},
+					ptr("john"): {Int: 1},
+				},
+			},
+			wantErr: errors.New("unsupported map key"),
+		},
+		{
+			name: "map[string]any with TestStruct",
 			args: args{
 				v: map[string]any{
 					"foo":  TestStruct{String: "string1"},
@@ -471,7 +486,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
-			name: "Map of string to any with pointer to TestStruct",
+			name: "map[string]any with *TestStruct",
 			args: args{
 				v: map[string]any{
 					"foo":  &TestStruct{String: "string1"},
@@ -481,7 +496,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"map[string]interface\",\"v\":{\"foo\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"string\":\"string1\"}},\"john\":{\"_t\":\"*github.com/trojanc/jsonr.TestStruct\",\"v\":{\"int\":1}}}}",
 		},
 		{
-			name: "Map of Struct to pointer TestStruct",
+			name: "Error map[TestStruct]*TestStruct",
 			args: args{
 				v: map[TestStruct]*TestStruct{
 					TestStruct{String: "a"}: {String: "string1"},
@@ -492,7 +507,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			wantErr: errors.New("unsupported map key"),
 		},
 		{
-			name: "Map of string to slice of TestStruct",
+			name: "map[string][]TestStruct",
 			args: args{
 				v: map[string][]TestStruct{
 					"a": {{String: "string1"}},
@@ -501,8 +516,19 @@ func Test_newjsonrStruct(t *testing.T) {
 			},
 			want: "{\"_t\":\"map[string][]github.com/trojanc/jsonr.TestStruct\",\"v\":{\"a\":[{\"string\":\"string1\"}],\"b\":[{\"int\":1}]}}",
 		},
+		{ // Even though marshalling to pointers i
+			name: "map[string]map[*string]string",
+			args: args{
+				v: map[string]map[*string]string{
+					"key": {
+						ptr("key1"): "value",
+					},
+				},
+			},
+			wantErr: errors.New("failed to unmarshal: json: unsupported type: map[*string]string"),
+		},
 		{
-			name: "Map of string to pointer to slice of TestStruct",
+			name: "map[string]*[]TestStruct",
 			args: args{
 				v: map[string]*[]TestStruct{
 					"a": {{String: "string1"}},
@@ -522,7 +548,7 @@ func Test_newjsonrStruct(t *testing.T) {
 			want: "{\"_t\":\"map[string]map[string]string\",\"v\":{\"1\":{\"a\":\"b\"},\"2\":{\"c\":\"d\"}}}",
 		},
 		{
-			name: "Slice of map[string]",
+			name: "[]]map[string]string",
 			args: args{
 				v: []map[string]string{
 					{"1": "a"},
@@ -530,6 +556,26 @@ func Test_newjsonrStruct(t *testing.T) {
 				},
 			},
 			want: "{\"_t\":\"[]map[string]string\",\"v\":[{\"1\":\"a\"},{\"2\":\"b\"}]}",
+		},
+		{
+			name: "map[string]any with nils",
+			args: args{
+				v: map[string]any{
+					"1": nil,
+					"2": nil,
+				},
+			},
+			want: "{\"_t\":\"map[string]interface\",\"v\":{\"1\":null,\"2\":null}}",
+		},
+		{
+			name: "[]any with nils",
+			args: args{
+				v: []any{
+					nil,
+					"2",
+				},
+			},
+			want: "{\"_t\":\"[]interface\",\"v\":[null,{\"_t\":\"string\",\"v\":\"2\"}]}",
 		},
 	}
 	for _, tt := range tests {

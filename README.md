@@ -10,6 +10,11 @@
 * breaking API changes expected
 * contributors welcome
 
+### Not currently supported
+* Maps with structs as keys `map[MyKey]MyValue`
+* Maps with pointers as keys `map[*string]MyValue`
+* Structs with Nested `any` fields e.g. `MyValue{ field: any }`
+
 ## Purpose
 
 A Go library for marshalling to json while maintaining custom types. When JSON is unmarshalled the original types

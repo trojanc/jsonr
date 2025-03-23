@@ -47,7 +47,11 @@ func Marshal(input any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(w)
+	data, err := json.Marshal(w)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal: %s", err.Error())
+	}
+	return data, nil
 }
 
 // Wrap takes a Go value and wraps it in a structure that includes type information. This allows for proper
@@ -78,9 +82,8 @@ func Marshal(input any) ([]byte, error) {
 //	wrapped, _ := jsonr.Wrap(people)
 //	wrapped will contain type information and value
 func Wrap(input any) (*Wrapped, error) {
-
 	if input == nil {
-		return nil, nil // TODO error?
+		return nil, nil
 	}
 
 	// Get reflection type and value
@@ -95,12 +98,15 @@ func Wrap(input any) (*Wrapped, error) {
 	}
 
 	if t.Kind() == reflect.Map {
+
+		// Check the map key type
 		switch t.Key().Kind() {
 		case reflect.Ptr, reflect.Struct, reflect.Map, reflect.Slice:
 			return nil, fmt.Errorf("unsupported map key")
 		default:
 		}
 
+		// Check the map value type
 		switch t.Elem().Kind() {
 		case reflect.Interface:
 			// rebuild the map by wrapping each value

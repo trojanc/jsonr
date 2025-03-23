@@ -65,7 +65,7 @@ func applyUnmarshalOptions(options ...UnmarshalOption) (*unmarshalOptions, error
 	for _, o := range options {
 		err := o(opts)
 		if err != nil {
-			return nil, fmt.Errorf("could not apply option: %w", err)
+			return nil, fmt.Errorf("could not apply option: %s", err.Error())
 		}
 	}
 

@@ -3,12 +3,16 @@ package jsonr
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
 
 // unwrappedType reference to the type of Unwrapped.
-var unwrappedType = reflect.TypeOf(Unwrapped{})
+var (
+	unwrappedType = reflect.TypeOf(Unwrapped{})
+	nilType       = reflect.TypeOf((*any)(nil)).Elem()
+)
 
 // Unwrapped a structure of an unwrapped type partially read from JSON
 type Unwrapped struct {
@@ -85,6 +89,10 @@ func Unmarshal(data []byte, options ...UnmarshalOption) (any, error) {
 // - Nested combinations of the above
 func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 
+	if wrapper.Value == nil {
+		return nil, nil
+	}
+
 	instanceType := wrapper.Type
 	isPointer := strings.HasPrefix(instanceType, "*")
 	var result any
@@ -95,12 +103,12 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 		result = slicePtr.Interface()
 		err := json.Unmarshal(wrapper.Value, result)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error unmarshalling slice: %s", err.Error())
 		}
 		if t.Elem() == unwrappedType {
 			slice := slicePtr.Elem()
 			// Create a new target map with value of any
-			targetSliceType := reflect.SliceOf(reflect.TypeOf((*any)(nil)).Elem())
+			targetSliceType := reflect.SliceOf(nilType)
 			targetSlice := reflect.MakeSlice(targetSliceType, slice.Len(), slice.Len())
 			targetSlicePtr := reflect.New(targetSliceType) // Pointer to map[?]any
 			targetSlicePtr.Elem().Set(targetSlice)         // Initialize the map
@@ -113,8 +121,11 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 				if err != nil {
 					return nil, err
 				}
-				mapValue := reflect.ValueOf(unwrappedValue)
-				targetSlice.Index(i).Set(mapValue)
+				sliceValue := reflect.ValueOf(unwrappedValue)
+				if unwrappedValue == nil {
+					sliceValue = reflect.New(nilType).Elem()
+				}
+				targetSlice.Index(i).Set(sliceValue)
 			}
 			result = targetSlicePtr.Interface()
 		}
@@ -124,12 +135,12 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 		result = mapPtr.Interface()
 		err := json.Unmarshal(wrapper.Value, result)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error unmarshalling map: %s", err.Error())
 		}
 
 		if t.Elem() == unwrappedType {
 			// Create a new target map with value of any
-			targetMapType := reflect.MapOf(t.Key(), reflect.TypeOf((*any)(nil)).Elem())
+			targetMapType := reflect.MapOf(t.Key(), nilType)
 			targetMap := reflect.MakeMap(targetMapType)
 			targetMapPtr := reflect.New(targetMapType) // Pointer to map[?]any
 			targetMapPtr.Elem().Set(targetMap)         // Initialize the map
@@ -145,6 +156,9 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 					return nil, err
 				}
 				mapValue := reflect.ValueOf(unwrappedValue)
+				if unwrappedValue == nil {
+					mapValue = reflect.New(nilType).Elem()
+				}
 
 				targetMap.SetMapIndex(keyValue, mapValue)
 			}
@@ -170,20 +184,9 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 	return result, nil
 }
 
-// removePointer Function to remove pointer from an `any` type variable
-func removePointer(v any) (any, bool) {
-	// Use type assertion to check if it's a pointer
-	if ptr, ok := v.(interface{ Elem() any }); ok {
-		return ptr.Elem(), true
-	}
-
-	// Use reflection as a fallback for generic cases
-	return removePointerReflect(v)
-}
-
 // removePointerReflect Function to remove pointer from an `any` type variable
 // using reflection
-func removePointerReflect(v any) (any, bool) {
+func removePointer(v any) (any, bool) {
 	// Use reflection to handle arbitrary pointer types
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Ptr {
@@ -221,7 +224,7 @@ func getType(instanceType string, opts *unmarshalOptions) reflect.Type {
 		vt := getType(instanceType, opts)
 
 		if vt.Kind() == reflect.Interface {
-			vt = unwrappedType // If its any, put it back into a wrapper
+			vt = unwrappedType // If it's any, put it back into a wrapper
 		} else if mapValPointer {
 			vt = reflect.PointerTo(vt)
 		}
