@@ -46,27 +46,3 @@ jobs:
 
       - name: Build the Project
         run: go build -v ./...
-
-  release:
-    name: Release Binary
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23
-
-      - name: Build Binary
-        run: go build -o myapp ./...
-
-      - name: Upload Binary as Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: jsont
-          path: jsont
