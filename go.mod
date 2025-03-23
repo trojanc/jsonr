@@ -1,4 +1,4 @@
-module github.com/trojanc/jsonr
+module github.com/trojanc/jsont
 
 go 1.24.0
 
