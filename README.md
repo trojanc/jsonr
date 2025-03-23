@@ -22,6 +22,7 @@ structs in it.
 
 This library embeds type information into the JSON, that assists when Unmarshalling to recreate the correct type of
 structs.
+
 ---
 
 ## 🔹 Features
@@ -38,3 +39,53 @@ Requires **Go 1.23+**.
 ```sh
 go get github.com/trojanc/jsonr
 ```
+
+
+## Basic Usage
+
+The following example shows how this libary can be used to persist the types maintained in a map supporting any values
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/trojanc/jsonr"
+)
+
+type Person struct {
+	Name string
+	Age  int
+}
+
+type Car struct {
+	Make  string
+	Model string
+}
+
+func main() {
+	inputMap := map[string]any{
+		"person": Person{Name: "John", Age: 21},
+		"car":  Car{Make: "BMW", Model: "X6"},
+	}
+	data, _ := jsonr.Marshal(inputMap)
+
+	// Unmarshal and register the types that can be contained in the data
+	output, _ := jsonr.Unmarshal(data,
+		jsonr.RegisterType(Person{}),
+		jsonr.RegisterType(Car{}),
+	)
+	outputMap := output.(map[string]any)
+	customer := outputMap["person"].(Person)
+	fmt.Printf("person name: %s, age: %d\n", customer.Name, customer.Age)
+
+	car := outputMap["car"].(Car)
+	fmt.Printf("car name: %s, age: %s\n", car.Make, car.Model)
+}
+
+
+
+
+```
+
