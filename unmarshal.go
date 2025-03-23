@@ -3,7 +3,6 @@ package jsonr
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -98,7 +97,6 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("slice : %v\n", result)
 		if t.Elem() == unwrappedType {
 			slice := slicePtr.Elem()
 			// Create a new target map with value of any
@@ -160,8 +158,6 @@ func Unwrap(wrapper Unwrapped, opts *unmarshalOptions) (any, error) {
 			return nil, err
 		}
 	}
-
-	fmt.Printf("result %v\n", result)
 
 	if !isPointer {
 		if val, ok := removePointer(result); ok {

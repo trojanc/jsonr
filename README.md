@@ -1,6 +1,17 @@
-# jsonr – JSON Parsing with Reflection for Go
+# jsonr – JSON with reflection types for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/trojanc/jsonr.svg)](https://pkg.go.dev/github.com/trojanc/jsonr)  
+[![Go Reference](https://pkg.go.dev/badge/github.com/trojanc/jsonr.svg)](https://pkg.go.dev/github.com/trojanc/jsonr)
+[![codecov](https://codecov.io/gh/trojanc/jsonr/graph/badge.svg?token=O7P7BFHZ67)](https://codecov.io/gh/trojanc/jsonr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/trojanc/jsonr)](https://goreportcard.com/report/github.com/trojanc/jsonr)
+
+## Project status
+
+* not yet recommended to use in production
+* breaking API changes expected
+* contributors welcome
+
+## Purpose
+
 A Go library for marshalling to json while maintaining custom types. When JSON is unmarshalled the original types
 will be recreated.
 
@@ -22,6 +33,7 @@ structs in it.
 
 This library embeds type information into the JSON, that assists when Unmarshalling to recreate the correct type of
 structs.
+
 ---
 
 ## 🔹 Features
@@ -38,3 +50,52 @@ Requires **Go 1.23+**.
 ```sh
 go get github.com/trojanc/jsonr
 ```
+
+
+## Basic Usage
+
+The following example shows how this libary can be used to persist the types maintained in a map supporting any values
+
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/trojanc/jsonr"
+)
+
+type Person struct {
+  Name string
+  Age  int
+}
+
+type Car struct {
+  Make  string
+  Model string
+}
+
+func main() {
+  inputMap := map[string]any{
+    "person": Person{Name: "John", Age: 21},
+    "car":    Car{Make: "BMW", Model: "X6"},
+  }
+  data, _ := jsonr.Marshal(inputMap)
+  fmt.Println(string(data))
+  // {"_t":"map[string]interface","v":{"car":{"_t":"main.Car","v":{"Make":"BMW","Model":"X6"}},"person":{"_t":"main.Person","v":{"Name":"John","Age":21}}}}
+
+  // Unmarshal and register the types that can be contained in the data
+  output, _ := jsonr.Unmarshal(data,
+    jsonr.RegisterType(Person{}),
+    jsonr.RegisterType(Car{}),
+  )
+  outputMap := output.(map[string]any)
+  customer := outputMap["person"].(Person)
+  fmt.Printf("person name: %s, age: %d\n", customer.Name, customer.Age)
+  // person name: John, age: 21
+
+  car := outputMap["car"].(Car)
+  fmt.Printf("car name: %s, age: %s\n", car.Make, car.Model)
+  // car name: BMW, age: X6
+}
+```
+
