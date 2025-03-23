@@ -31,10 +31,10 @@ jobs:
       - name: Install Dependencies
         run: go mod download
 
-      - name: Run Linter
-        run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          golangci-lint run ./...
+      - name: golangci-lint
+          uses: golangci/golangci-lint-action@v6
+          with:
+            version: v1.64
 
       - name: Run Tests
         run: go test -v ./... -coverprofile=coverage.out
